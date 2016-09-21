@@ -6,3 +6,5 @@ gem "sinatra-contrib"
 
 gem "json"
 gem "rspec"
+
+gem "facets", require: false
