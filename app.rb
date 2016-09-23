@@ -1,21 +1,31 @@
 require 'sinatra'
 require "sinatra/reloader" if development?
 require 'digest/sha1'
-require 'facets'
+require 'json'
 
 set :port, 8000
 
 ENCODING_PHRASE = "Trolls live under bridges"
+WORD_SPLIT = " "
 
 before do
 	@client_id = request.ip
 end
   
+# Generates a client unique hash key from 2 parameters
+#
+# @param [source] source text for captcha
+# @param [exclude] excluded word list
+# @return [String] the hash generated
 def id_gen(source, exclude)
 	id = Digest::SHA1.hexdigest("#{ENCODING_PHRASE}-#{source}-#{exclude}-#{@client_id}")
 	return id
 end
 
+# Create a random subset of words to exclude from a string
+#
+# @param [word_list] text to extract words from
+# @return [Array] the list of exclude words
 def exclusion_words(word_list)
 	# get a subset of words to exclude based on the unique list
 	uniq_words = word_list.uniq
@@ -29,6 +39,17 @@ def exclusion_words(word_list)
 		exclude = uniq_words.sample(exclude_count)
 	end
 	return exclude
+end
+
+# Count occurances of each word in a block of text
+#
+# @param [text] text to counts the words from
+# @return [Hash] list of words and their occurance count
+def word_counts(text)
+	word_list = text.split(WORD_SPLIT)
+	counts = Hash.new(0)
+	word_list.each { |word| counts[word] += 1 }
+	return counts
 end
 
 get '/' do
@@ -50,16 +71,35 @@ end
 
 post '/' do
 
-	captcha = JSON.parse(request.env["rack.input"].read)
-	if captcha.length==0
-		halt 400
+	submitted = request.env["rack.input"].read
+	captcha = JSON.parse(submitted) rescue Hash.new(0)
+	
+	# check if required keys are present
+	unless captcha.length==4 && captcha.key?('text') && captcha.key?('exclude') && captcha.key?('ref_id') && captcha.key?('counts')
+		status 400
+	else
+		# re-generate the ref_id based on content
+		ref_id = id_gen(captcha["text"], captcha["exclude"])
+		# check if ref_id is correct
+		unless ref_id==captcha["ref_id"]
+			status 400
+		else
+			# create a list of words to count
+			text_array = captcha["text"].split(WORD_SPLIT)
+			# remove words that shouldn't be counted
+			words_to_count = text_array - captcha["exclude"]
+			# convert cleaned list back to text
+			text_to_count = words_to_count.join(" ")
+			correct_answer = word_counts(text_to_count)
+			submitted_answer = captcha["counts"]
+			
+			# compare submitted counts with correct counts
+			unless correct_answer==captcha["counts"]
+				status 400
+			else
+				status 200
+			end
+		end
 	end
-	
-	text_array = captcha.text.split
-	exclude_words = captcha.exclude
-	words_to_count = text_array - exclude
-	text_to_count = words_to_count.join(" ")
-	correct_answer = text_to_count.frequency
-	
 
 end
