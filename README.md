@@ -17,6 +17,12 @@ To run the code:
         rspec
 
 
+To interact with the API:
+The API accept an empty GET request and will respond with a json name/value pair data structure. There are three keys: `text`, `exclude`, `ref_id`. These keys and their original values must be returned as json with an additional `counts` key added. The `counts` key must contain a name/value pair list of words and their occurrence count in the `text`, excluding words provide in `exclude`. 
+
+A word is consider to be any set of characters separate by a space. Words are case sensitive, so "Word" and "word" are considered different words and should be counted separately.
+
+
 ## Strategies and Considerations
 
 Troll aliens are really bad at counting words. This will take time to change and we will probably notice that they are improving. This won't prevent them from downloading some code to help them fake out our CAPTCHA system. Some things we should consider when building our system:
@@ -33,7 +39,7 @@ The MVP to implement in code:
 1. Cheating protection. Include a hash key that will need to be submitted back with the answer. Key uses a secret passphrase and client IP address so is unique per client and text.
 2. A stateless architecture.
 3. The current text sample files are used. Exclusion words are random per request and can be up to n-1 words. A real implementation would use random source words per request.
-4. Assumes words are separated by spaces.
+4. Assumes words are separated by spaces. Words are case sensitive, so "word" and "Word" should be counted different.
 
 
 Considerations and what's missing:
